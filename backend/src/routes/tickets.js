@@ -10,7 +10,7 @@ const router = express.Router();
 
 // CREAR UN NUEVO TICKET
 router.post('/', protect, async (req, res) => {
-  const { title, description, category, subcategory, subcategoryOtherDescription } = req.body;
+  const { title, description, category, subcategory, subcategoryOtherDescription, agentId } = req.body;
   try {
     const ticket = await Ticket.create({
       title,
@@ -18,7 +18,8 @@ router.post('/', protect, async (req, res) => {
       subcategory,
       subcategoryOtherDescription: subcategoryOtherDescription || '',
       userId: req.user.id,        // Llave foránea del creador
-      categoryId: category       // Llave foránea de la categoría
+      categoryId: category,       // Llave foránea de la categoría
+      agentId: agentId || null    // Asignación de agente (puede ser automática desde el frontend)
     });
     res.status(201).json(ticket);
   } catch (error) {
@@ -26,16 +27,27 @@ router.post('/', protect, async (req, res) => {
   }
 });
 
+// OBTENER ESTADÍSTICAS DEL DASHBOARD (Solo Agentes y Sysadmins)
+router.get('/stats', protect, authorize('agente', 'sysadmin'), async (req, res) => {
+  try {
+    const total = await Ticket.count();
+    const abiertos = await Ticket.count({ where: { status: 'abierto' } });
+    const enProceso = await Ticket.count({ where: { status: 'en proceso' } });
+    const resueltos = await Ticket.count({ where: { status: 'cerrado' } });
+    res.json({ total, abiertos, enProceso, resueltos });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // OBTENER TODOS LOS TICKETS (Con filtros para Reportes)
 router.get('/', protect, async (req, res) => {
-  const { agentId, userId, categoryId, status, start_date } = req.query;
+  const { agentId, userId, categoryId, status, start_date, end_date } = req.query;
   let whereConditions = {};
 
   // Restricciones de Rol en SQL
   if (req.user.role === 'usuario') {
     whereConditions.userId = req.user.id; // El usuario común solo ve lo suyo
-  } else if (req.user.role === 'agente' && !agentId) {
-    whereConditions.agentId = req.user.id; // El agente ve por defecto los suyos
   }
 
   // Filtros opcionales desde el Frontend (para reportes de Administrador o Agente)
@@ -43,7 +55,16 @@ router.get('/', protect, async (req, res) => {
   if (userId) whereConditions.userId = userId;
   if (categoryId) whereConditions.categoryId = categoryId;
   if (status) whereConditions.status = status;
-  if (start_date) whereConditions.createdAt = { [Op.gte]: new Date(start_date) };
+  
+  if (start_date || end_date) {
+    whereConditions.createdAt = {};
+    if (start_date) whereConditions.createdAt[Op.gte] = new Date(start_date);
+    if (end_date) {
+        const endDate = new Date(end_date);
+        endDate.setHours(23, 59, 59, 999);
+        whereConditions.createdAt[Op.lte] = endDate;
+    }
+  }
 
   try {
     // Reemplazamos los .populate() de Mongoose por 'include' de Sequelize
@@ -81,14 +102,24 @@ router.put('/:id', protect, authorize('agente', 'sysadmin'), async (req, res) =>
 
 // AGREGAR UN COMENTARIO A UN TICKET
 router.post('/:id/comments', protect, async (req, res) => {
-  const { message } = req.body;
+  // Acepta tanto 'message' como 'content' para compatibilidad con el frontend
+  const commentText = req.body.message || req.body.content;
+  const { isInternal } = req.body;
   try {
+    if (!commentText || !commentText.trim()) {
+      return res.status(400).json({ message: 'El comentario no puede estar vacío' });
+    }
     const comment = await Comment.create({
       ticketId: req.params.id,
       authorId: req.user.id,
-      message
+      message: commentText,
+      isInternal: isInternal || false
     });
-    res.status(201).json(comment);
+    // Devolvemos el comentario con los datos del autor para actualizar la UI sin re-fetch
+    const fullComment = await Comment.findByPk(comment.id, {
+      include: [{ model: User, as: 'autor', attributes: ['name', 'role'] }]
+    });
+    res.status(201).json(fullComment);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -97,8 +128,15 @@ router.post('/:id/comments', protect, async (req, res) => {
 // OBTENER COMENTARIOS DE UN TICKET SPECÍFICO
 router.get('/:id/comments', protect, async (req, res) => {
   try {
+    let whereConditions = { ticketId: req.params.id };
+    
+    // Si es usuario normal, ocultar los comentarios internos
+    if (req.user.role === 'usuario') {
+      whereConditions.isInternal = false;
+    }
+
     const comments = await Comment.findAll({
-      where: { ticketId: req.params.id },
+      where: whereConditions,
       include: [{ model: User, as: 'autor', attributes: ['name', 'role'] }],
       order: [['createdAt', 'ASC']] // En orden cronológico
     });

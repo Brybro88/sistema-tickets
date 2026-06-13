@@ -6,29 +6,48 @@ import { protect } from '../middlewares/auth.js';
 
 const router = express.Router();
 
-// REGISTRO DE USUARIOS
+// REGISTRO DE USUARIOS (Público — con restricciones de dominio y PIN para roles privilegiados)
 router.post('/register', async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, authCode } = req.body;
   try {
-    // Validar si el usuario ya existe en Postgres
+    // 1. Validar dominio de correo institucional
+    const allowedDomain = process.env.ALLOWED_EMAIL_DOMAIN || '@itsrll';
+    if (!email || !email.includes(allowedDomain)) {
+      return res.status(400).json({
+        message: `Solo se permiten correos institucionales que contengan "${allowedDomain}" (Ej: usuario${allowedDomain}.edu.mx)`
+      });
+    }
+
+    // 2. Validar si el usuario ya existe en Postgres
     const userExists = await User.findOne({ where: { email } });
     if (userExists) {
       return res.status(400).json({ message: 'El correo electrónico ya está registrado' });
     }
 
-    // Encriptar la contraseña
+    // 3. Si el rol solicitado es privilegiado, verificar el código de autorización
+    const requestedRole = role || 'usuario';
+    if (requestedRole === 'agente' || requestedRole === 'sysadmin') {
+      const adminPin = process.env.ADMIN_PIN;
+      if (!authCode || authCode !== adminPin) {
+        return res.status(403).json({
+          message: 'Código de autorización inválido. Contacta al administrador del sistema para obtener el código.'
+        });
+      }
+    }
+
+    // 4. Encriptar la contraseña
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Crear usuario en la base de datos
+    // 5. Crear usuario en la base de datos
     const user = await User.create({
       name,
       email,
       password: hashedPassword,
-      role: role || 'usuario'
+      role: requestedRole
     });
 
-    // Generar Token JWT
+    // 6. Generar Token JWT
     const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 
     res.status(201).json({

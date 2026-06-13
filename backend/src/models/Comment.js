@@ -12,6 +12,10 @@ const Comment = sequelize.define('Comment', {
   message: { 
     type: DataTypes.TEXT, 
     allowNull: false 
+  },
+  isInternal: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   }
 }, {
   timestamps: true
