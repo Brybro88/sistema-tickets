@@ -23,6 +23,10 @@ const User = sequelize.define('User', {
   role: { 
     type: DataTypes.ENUM('usuario', 'agente', 'sysadmin'), 
     defaultValue: 'usuario' 
+  },
+  specialties: {
+    type: DataTypes.ARRAY(DataTypes.STRING),
+    defaultValue: []
   }
 }, {
   timestamps: true // Agrega createdAt y updatedAt automáticamente

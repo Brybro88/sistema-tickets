@@ -80,8 +80,12 @@ const TicketDetailModal = ({
   if (!selectedTicket) return null;
 
   return (
-    <div style={s.overlay} onClick={onClose}>
-      <div style={{ ...s.modal, maxWidth: '620px', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center z-[1000] p-4 animate-fade-in" onClick={onClose}>
+      <div 
+        className="glass-panel w-full max-w-[620px] max-h-[90vh] overflow-y-auto relative animate-slide-up"
+        style={{ padding: '32px' }} 
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Cabecera */}
         <div style={s.modalHead}>
           <div>
@@ -92,10 +96,10 @@ const TicketDetailModal = ({
                 {getStatus(selectedTicket.status).label}
               </span>
             </div>
-            <h2 style={s.modalTitle}>{selectedTicket.title}</h2>
+            <h2 className="text-xl font-bold text-slate-800 mb-1">{selectedTicket.title}</h2>
           </div>
-          <button onClick={onClose} style={s.closeBtn}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
 
@@ -147,12 +151,14 @@ const TicketDetailModal = ({
             >
               {nextStatusLabel(selectedTicket.status)}
             </button>
-            <button
-              style={{ ...s.statusBtn, backgroundColor: '#F0FDF4', borderColor: '#BBF7D0', color: '#059669' }}
-              onClick={() => onOpenReassign(selectedTicket.id)}
-            >
-              {selectedTicket.agentId ? 'Reasignar agente' : 'Asignar agente'}
-            </button>
+            {user.role === 'sysadmin' && (
+              <button
+                style={{ ...s.statusBtn, backgroundColor: '#F0FDF4', borderColor: '#BBF7D0', color: '#059669' }}
+                onClick={() => onOpenReassign(selectedTicket.id)}
+              >
+                {selectedTicket.agentId ? 'Reasignar agente' : 'Asignar agente'}
+              </button>
+            )}
           </div>
         )}
 

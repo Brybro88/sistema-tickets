@@ -11,8 +11,8 @@ const ReassignModal = ({
   if (!reassignTicketId || !selectedTicket) return null;
 
   return (
-    <div style={s.overlay} onClick={onClose}>
-      <div style={{ ...s.modal, maxWidth: '400px' }} onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center z-[1000] p-4 animate-fade-in" onClick={onClose}>
+      <div className="glass-panel w-full relative animate-slide-up" style={{ ...s.modal, maxWidth: '400px' }} onClick={(e) => e.stopPropagation()}>
         <div style={s.modalHead}>
           <div>
             <h2 style={s.modalTitle}>{selectedTicket.agentId ? 'Reasignar agente' : 'Asignar agente'}</h2>

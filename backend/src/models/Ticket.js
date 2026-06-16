@@ -23,19 +23,23 @@ const Ticket = sequelize.define('Ticket', {
   },
   subcategory: { 
     type: DataTypes.STRING, 
-    allowNull: false 
+    allowNull: true 
   },
   subcategoryOtherDescription: { 
     type: DataTypes.STRING, 
     defaultValue: '' 
+  },
+  assignedByAi: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   }
 }, {
   timestamps: true
 });
 
 // Definición de Llaves Foráneas (Relaciones)
-Ticket.belongsTo(User, { as: 'usuario', foreignKey: 'userId' });
+Ticket.belongsTo(User, { as: 'usuario', foreignKey: 'userId', constraints: false });
 Ticket.belongsTo(User, { as: 'agente', foreignKey: 'agentId', constraints: false }); // Puede iniciar siendo NULL
-Ticket.belongsTo(Category, { as: 'categoria', foreignKey: 'categoryId' });
+Ticket.belongsTo(Category, { as: 'categoria', foreignKey: 'categoryId', constraints: false });
 
 export default Ticket;

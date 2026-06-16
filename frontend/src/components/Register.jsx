@@ -8,11 +8,33 @@ const Register = () => {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('usuario');
   const [authCode, setAuthCode] = useState('');
+  const [specialties, setSpecialties] = useState([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const navigate = useNavigate();
 
   const needsAuthCode = role === 'agente' || role === 'sysadmin';
+
+  const availableSpecialties = [
+    'Redes y Conectividad',
+    'Soporte de Software',
+    'Hardware y Equipos',
+    'Cuentas y Accesos',
+    'Telefonía e IP',
+    'Correo Electrónico',
+    'Seguridad Informática',
+    'Servicios de Impresión',
+    'Servidores y Nube',
+    'Desarrollo y BD'
+  ];
+
+  const handleCheckboxChange = (spec) => {
+    if (specialties.includes(spec)) {
+      setSpecialties(specialties.filter(item => item !== spec));
+    } else {
+      setSpecialties([...specialties, spec]);
+    }
+  };
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -22,6 +44,9 @@ const Register = () => {
       const payload = { name, email, password, role };
       if (needsAuthCode) {
         payload.authCode = authCode;
+      }
+      if (role === 'agente') {
+        payload.specialties = specialties;
       }
       await axios.post('http://localhost:5000/api/auth/register', payload);
       setSuccess('¡Cuenta creada con éxito!');
@@ -145,6 +170,26 @@ const Register = () => {
             </div>
           )}
 
+          {/* Especialidades — Solo para Agente */}
+          {role === 'agente' && (
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>ESPECIALIDADES</label>
+              <div style={styles.specialtiesWrapper}>
+                {availableSpecialties.map(spec => (
+                  <label key={spec} style={styles.specialtyLabel}>
+                    <input
+                      type="checkbox"
+                      checked={specialties.includes(spec)}
+                      onChange={() => handleCheckboxChange(spec)}
+                      style={styles.checkbox}
+                    />
+                    {spec}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           <button type="submit" style={styles.button}>Registrar Cuenta</button>
         </form>
 
@@ -235,6 +280,29 @@ const styles = {
   },
   switchText: { marginTop: '25px', fontSize: '12px', color: '#71717a', textAlign: 'center' },
   link: { color: '#6366f1', textDecoration: 'none', fontWeight: 'bold' },
+  specialtiesWrapper: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '10px',
+    padding: '14px',
+    borderRadius: '12px',
+    border: '1px solid #1f2235',
+    backgroundColor: '#141622',
+    maxHeight: '140px',
+    overflowY: 'auto',
+  },
+  specialtyLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '12.5px',
+    color: '#a1a1aa',
+    cursor: 'pointer',
+  },
+  checkbox: {
+    accentColor: '#6d28d9',
+    cursor: 'pointer',
+  },
 };
 
 export default Register;

@@ -20,7 +20,7 @@ const DashboardLayout = ({ children, activeView, setActiveView, categoriesData, 
 
       {showModal && (
         <NewTicketModal 
-          categoriesData={categoriesData} 
+          categoriesData={categoriesData}
           onClose={() => setShowModal(false)}
           onSuccess={() => {
             setShowModal(false);
