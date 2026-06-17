@@ -37,17 +37,30 @@ const DashboardPage = () => {
   const [loadingAiAssign, setLoadingAiAssign] = useState(null);
   const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isLoading: false });
 
+  // 1. Cargar diccionarios estáticos (Categorías, Agentes) UNA SOLA VEZ al montar o si cambia el usuario
   useEffect(() => {
-    fetchTickets();
-    fetchAgents();
-    fetchCategories();
-    if (user && (user.role === 'sysadmin' || user.role === 'agente')) {
-        fetchStats();
+    if (user) {
+      fetchCategories();
+      fetchAgents();
     }
+  }, [user]);
+
+  // 2. Refrescar Tickets (Datos reactivos) cuando cambian los filtros
+  useEffect(() => {
+    if (user) {
+      fetchTickets();
+      if (user.role === 'sysadmin' || user.role === 'agente') {
+          fetchStats();
+      }
+    }
+  }, [filter, filterAgent, activeView, reportFilters, user]); 
+
+  // 3. Pestaña de administración
+  useEffect(() => {
     if (user && user.role === 'sysadmin' && activeView === 'configuracion') {
         fetchAllUsers();
     }
-  }, [filter, filterAgent, activeView, reportFilters, user]);
+  }, [activeView, user]);
 
   const fetchCategories = async () => {
     try {
@@ -361,12 +374,25 @@ const DashboardPage = () => {
                           </td>
                           <td style={s.tdText}>
                             {agentName ? (
-                              <span style={{ fontSize: '13px', color: '#374151', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                {agentName}
-                                {t.assignedByAi && (
-                                  <span title="Asignado automáticamente por IA" style={{ cursor: 'help' }}>✨</span>
-                                )}
-                              </span>
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '13px', color: '#374151', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  {agentName}
+                                  {t.assignedByAi && (
+                                    <span title="Asignado automáticamente por IA" style={{ cursor: 'help' }}>✨</span>
+                                  )}
+                                </span>
+                                {(() => {
+                                  const specs = t.agente?.specialties || agents.find(a => a.id === t.agentId)?.specialties;
+                                  if (specs && specs.length > 0) {
+                                    return (
+                                      <span className="text-xs text-slate-400 truncate max-w-[120px] mt-0.5" title={specs.join(', ')}>
+                                        {specs[0]}{specs.length > 1 ? '...' : ''}
+                                      </span>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                              </div>
                             ) : user.role !== 'sysadmin' ? (
                               <span style={{ fontSize: '12px', color: '#94A3B8' }}>Sin asignar</span>
                             ) : (
@@ -561,12 +587,25 @@ const DashboardPage = () => {
                         <td style={s.tdText}>{t.usuario?.name || 'Sin asignar'}</td>
                         <td style={s.tdText}>
                           {agentName ? (
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              {agentName}
-                              {t.assignedByAi && (
-                                <span title="Asignado automáticamente por IA" style={{ cursor: 'help' }}>✨</span>
-                              )}
-                            </span>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                {agentName}
+                                {t.assignedByAi && (
+                                  <span title="Asignado automáticamente por IA" style={{ cursor: 'help' }}>✨</span>
+                                )}
+                              </span>
+                              {(() => {
+                                const specs = t.agente?.specialties || agents.find(a => a.id === t.agentId)?.specialties;
+                                if (specs && specs.length > 0) {
+                                  return (
+                                    <span className="text-xs text-slate-400 truncate max-w-[120px] mt-0.5" title={specs.join(', ')}>
+                                      {specs[0]}{specs.length > 1 ? '...' : ''}
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
+                            </div>
                           ) : user.role === 'sysadmin' ? (
                             <button
                               onClick={(e) => { e.stopPropagation(); setReassignTicketId(t.id); setSelectedTicket(t); }}
@@ -719,7 +758,7 @@ const DashboardPage = () => {
                   <table style={s.table}>
                     <thead>
                       <tr>
-                        {['ID', 'Nombre', 'Correo', 'Rol', 'Fecha de Registro', 'Acción'].map(h => (
+                        {['ID', 'USUARIO', 'Correo', 'Fecha de Registro', 'Acción'].map(h => (
                           <th key={h} style={s.th}>{h}</th>
                         ))}
                       </tr>
@@ -727,19 +766,31 @@ const DashboardPage = () => {
                     <tbody>
                       {allUsers.length === 0 ? (
                         <tr>
-                          <td colSpan="6" style={s.emptyCell}>Cargando usuarios...</td>
+                          <td colSpan="5" style={s.emptyCell}>Cargando usuarios...</td>
                         </tr>
                       ) : (
                         allUsers.map((u, i) => (
                           <tr key={u.id} style={{ ...s.tr, backgroundColor: i % 2 === 0 ? '#fff' : '#F8FAFC' }}>
                             <td style={s.tdMono}>#{u.id?.substring(0, 7).toUpperCase()}</td>
-                            <td style={s.tdText}><strong style={{ color: '#0F172A' }}>{u.name}</strong></td>
-                            <td style={s.tdText}>{u.email}</td>
                             <td style={s.tdText}>
-                              <span style={u.role === 'sysadmin' ? s.roleAdmin : s.roleUser}>
-                                {u.role}
-                              </span>
+                              <div className="flex items-center gap-3">
+                                {/* Elemento Izquierdo: Avatar */}
+                                <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm shrink-0">
+                                  {u.name ? u.name.charAt(0).toUpperCase() : 'U'}
+                                </div>
+                                {/* Elemento Derecho: Información Apilada */}
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-semibold text-slate-800">{u.name}</span>
+                                  <span 
+                                    style={u.role === 'sysadmin' ? s.roleAdmin : s.roleUser}
+                                    className="text-xs mt-1 w-max"
+                                  >
+                                    {u.role}
+                                  </span>
+                                </div>
+                              </div>
                             </td>
+                            <td style={s.tdText}>{u.email}</td>
                             <td style={s.tdText}>{formatDate(u.createdAt)}</td>
                             <td style={s.tdText}>
                               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>

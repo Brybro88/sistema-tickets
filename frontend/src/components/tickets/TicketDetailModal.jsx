@@ -122,6 +122,21 @@ const TicketDetailModal = ({
             <span style={s.infoValue}>
               {selectedTicket.agente?.name || agents.find(a => a.id === selectedTicket.agentId)?.name || 'Sin agente'}
             </span>
+            {(() => {
+              const agentSpecialties = selectedTicket.agente?.specialties || agents.find(a => a.id === selectedTicket.agentId)?.specialties;
+              if (agentSpecialties && agentSpecialties.length > 0) {
+                return (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {agentSpecialties.map((skill, index) => (
+                      <span key={index} className="bg-blue-50 text-blue-600 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-blue-200">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
           <div style={s.infoBlock}>
             <span style={s.infoLabel}>FECHA DE CREACIÓN</span>

@@ -11,7 +11,15 @@ const router = express.Router();
 
 // CREAR UN NUEVO TICKET (Con Auto-Triage Híbrido)
 router.post('/', protect, async (req, res) => {
-  const { title, description, categoryId, subcategoryId } = req.body;
+  let { title, description, categoryId, subcategoryId } = req.body;
+  
+  if (!title || title.length > 200) {
+    return res.status(400).json({ message: 'El título es requerido y no debe exceder 200 caracteres.' });
+  }
+
+  const safeTitle = title.replace(/[`"'{}[\\]]/g, '');
+  const safeDesc = (description || 'Sin descripción').replace(/[`"'{}[\\]]/g, '');
+
   try {
     let finalAgentId = null;
     let assignedByAi = false;
@@ -35,8 +43,8 @@ Eres un sistema inteligente de asignación de tickets de soporte técnico.
 Analiza la siguiente información del ticket y la lista de agentes disponibles.
 
 Ticket:
-- Título: ${title}
-- Descripción: ${description || 'Sin descripción detallada'}
+- Título: ${safeTitle.substring(0, 300)}
+- Descripción: ${safeDesc.substring(0, 1000)}
 - Categoría: ${categoryName}
 - Subcategoría: ${subcategoryId || 'N/A'}
 
@@ -154,12 +162,19 @@ Instrucciones Críticas:
 
     // Limpiar posible formato markdown si la IA ignora las instrucciones
     let cleanText = aiResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-    const parsed = JSON.parse(cleanText);
+    
+    let parsed = null;
+    try {
+      parsed = JSON.parse(cleanText);
+    } catch (parseError) {
+      console.error('[AI Parser Error] Respuesta no era JSON válido:', cleanText);
+      return res.status(502).json({ message: 'La Inteligencia Artificial devolvió un formato no legible. Intenta asignarlo manualmente.' });
+    }
 
     // Validar categoría
     const validCategory = categories.find(c => c.id === parsed.categoryId);
     if (!validCategory) {
-      return res.status(500).json({ message: `La IA devolvió un categoryId inválido: "${parsed.categoryId}"` });
+      return res.status(400).json({ message: 'La IA asignó una categoría inexistente. Acción cancelada para proteger integridad.' });
     }
 
     // Validar agente
@@ -180,9 +195,9 @@ Instrucciones Críticas:
     const updatedTicket = await Ticket.findByPk(ticket.id, {
       include: [
         { model: User, as: 'usuario', attributes: ['name', 'email'] },
-        { model: User, as: 'agente', attributes: ['name', 'email'] },
+        { model: User, as: 'agente', attributes: ['name', 'email', 'specialties'] },
         { model: Category, as: 'categoria', attributes: ['name'] }
-      ]
+      ],
     });
 
     res.json(updatedTicket);
@@ -243,7 +258,7 @@ router.get('/', protect, async (req, res) => {
       where: whereConditions,
       include: [
         { model: User, as: 'usuario', attributes: ['name', 'email'] },
-        { model: User, as: 'agente', attributes: ['name', 'email'] },
+        { model: User, as: 'agente', attributes: ['name', 'email', 'specialties'] },
         { model: Category, as: 'categoria', attributes: ['name'] }
       ],
       order: [['createdAt', 'DESC']] // Los más nuevos primero
